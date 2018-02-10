@@ -4,7 +4,7 @@
             [parable.utils.core :as u]
             [immutant.web :as server]))
 
-(def host "127.0.0.1")
+(def host "0.0.0.0")
 (def port 8000)
 
 (defn -main [& args]

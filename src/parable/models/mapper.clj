@@ -1,48 +1,57 @@
 (ns parable.models.mapper
   (:require [parable.utils.core :as u]))
 
-(def private->partners (atom {"1112223333" #{"2222222222"
-                                             "3333333333"
-                                             "4444444444"}
-                              "0001112222" #{"2222222222"
-                                             "3333333333"
-                                             "4444444444"}}))
+(def all-partners #{"Mike Mirabella" "+1 (408) 368-9913"})
 
-(def seeker->partners (atom nil))
+(def private->partners [(atom all-partners)
+                        (atom all-partners)])
 
-(defn link [{:keys [body]}]
-  (first (keep identity
-               (for [[priv partners] @private->partners] 
-                 (when-let [partner (first partners)]
-                   (reset! private->partners (update @private->partners priv disj partner))
-                   ;TODO: need to rm it from the map too
-                   ; test this:
-                   (reset! seeker->partners
-                           (remove @seeker->partners #(and 
-                                                        (= (get-in % :seekerNumber) body)
-                                                        (= (get-in % :partnerNumber) partner))))
-                   (swap! seeker->partners conj {:seekerNumber body
-                                                 :partnerNumber partner})
-                   {priv partner}))))) 
+(def seeker->private (atom {}))
 
-;provide a partner
-;get a new seeker->private->partner mapping
-(defn link-partner [{:keys [body]}]
-  (for [[priv partners] @private->partners]
-    (when (get @partners (:partnerNumber body))
-      (reset! private->partners (update @private->partners priv disj (:partnerNumber body)))
-     ;TODO: this is wrong, fix it for this function:
-     (reset! seeker->partners
-              (remove @seeker->partners #(and 
-                                           (= (get-in % :seekerNumber) body)
-                                           (= (get-in % :partnerNumber) partner))))     
-      (swap! seeker->partners conj {:seekerNumber (:seekerNumber body)
-                                                                                                                      :partnerNumber (:partnerNumber body)})
-      priv)))
+(def seeker->partners (atom {}))
 
-(defn available-partners []
-  (reduce into (map val @private->partners)))
+(defn flush [_]
+  (doseq [ps private->partners]
+    (reset! ps all-partners))
+  (reset! seeker->private {})
+  (reset! seeker->partners {}))
 
-(defn list-all []
-  (u/ok @seeker->partners))
+(defn link-all [seeker-id private-id partner-id]
+  (swap! (nth private->partners private-id) disj partner-id)
+  (swap! seeker->partners 
+         assoc
+         seeker-id
+         {:seekerNumber seeker-id
+          :partnerNumber partner-id})
+  (swap! seeker->private assoc seeker-id private-id)
+  (u/ok {:private-id private-id 
+         :seeker-id seeker-id
+         :partner-id partner-id}))
 
+(defn link [{{:keys [seeker-id]} :body}]
+  (loop [private-id 0]
+    (when (< private-id (count private->partners))
+      (let [partners (nth private->partners private-id)]
+        (if-let [partner-id (first @partners)]
+          (link-all seeker-id private-id partner-id)
+          (recur (inc private-id)))))))
+
+(defn link-partner [{{:keys [seeker-id partner-id]} :body}]
+  (when-let [p-id (get @seeker->private seeker-id)]
+    (swap! (nth private->partners p-id) conj partner-id)
+    (loop [private-id 0]
+      (when (< private-id (count private->partners))
+        (let [partners (nth private->partners private-id)]
+          (if (contains? @partners partner-id)
+            (link-all seeker-id private-id partner-id)
+            (recur (inc private-id))))))))
+
+(defn available-partners [_]
+  (u/ok {:partners (vec (reduce into (map deref private->partners)))}))
+
+(defn pairs [_]
+  (u/ok (vals @seeker->partners)))
+
+(defn list-all [_]
+  (u/ok {:seeker->private @seeker->private
+         :seeker->partners @seeker->partners}))

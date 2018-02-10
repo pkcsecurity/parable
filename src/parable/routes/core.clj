@@ -8,26 +8,12 @@
             [compojure.route :as route]))
 
 (r/defroutes routes
-  (r/context "/sp" []
-             (r/DELETE "/" [] m/rm-sp)
-             (r/PUT "/" [] m/add-sp)
-             (r/POST "/" [] m/update-sp)
-             (r/GET "/" [] m/get-sp))
-
-  (r/context "/pp" []
-             (r/DELETE "/" [] m/rm-pp)
-             (r/PUT "/" [] m/add-pp)
-             (r/POST "/" [] m/update-pp)
-             (r/GET "/" [] m/get-pp))
-
-  (r/context "/np" []
-             (r/DELETE "/" [] m/rm-np)
-             (r/PUT "/" [] m/add-np)
-             (r/POST "/" [] m/update-np)
-             (r/GET "/" [] m/get-np))
-
-  (r/POST "/link" [] m/link)
-
+   (r/POST "/link" [] m/link)
+   (r/POST "/linkpartner" [] m/link-partner)
+   (r/GET "/available" [] m/available-partners)
+   (r/GET "/list" [] m/pairs)
+   (r/GET "/table" [] m/list-all)
+   (r/POST "/flush" [] m/flush)
   (route/not-found nil))
 
 (def app
